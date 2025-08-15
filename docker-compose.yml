@@ -1,0 +1,44 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: weather_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  nats:
+    image: nats:2.11
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+
+  display_service:
+    build: ./display_service
+    command: bash -c "rm -f tmp/pids/server.pid && bundle exec rails s -b 0.0.0.0"
+    volumes:
+      - ./display_service:/app
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+      - nats
+    environment:
+      DATABASE_URL: postgres://user:password@postgres:5432/weather_db
+      NATS_URL: nats://nats:4222
+
+  fetch_service:
+    build: ./fetch_service
+    volumes:
+      - ./fetch_service:/app
+    depends_on:
+      - nats
+    environment:
+      NATS_URL: nats://nats:4222
+
+volumes:
+  postgres_data:
